@@ -1,0 +1,8 @@
+{
+  "name": "Fetch Nifty500 Stocks",
+  "runtime": "python-3.9",
+  "entrypoint": "main.py",
+  "commands": [
+    "pip install -r requirements.txt"
+  ]
+}
