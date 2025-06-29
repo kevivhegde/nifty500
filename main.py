@@ -13,6 +13,11 @@ def main(context):
         client.set_project(os.environ["APPWRITE_FUNCTION_PROJECT_ID"])
         client.set_key(os.environ["APPWRITE_API_KEY"])
 
+        #setup the database
+        databases = Databases(client)
+        database_id = os.environ["NIFTY_DATABASE_ID"]
+        collection_id = os.environ["NIFTY_COLLECTION_ID"]
+
         #Send Request to the nifty website for the Nifty 500 stocks
         url = os.environ["NIFTY_URL"]
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -23,10 +28,14 @@ def main(context):
         df = pd.read_csv(io.StringIO(response.text))
         df.columns = df.columns.str.strip()
 
-        #setup the database
-        databases = Databases(client)
-        database_id = os.environ["NIFTY_DATABASE_ID"]
-        collection_id = os.environ["NIFTY_COLLECTION_ID"]
+        # Download Angel One token master
+        token_url = os.environ["ANGEL_ONE_OPEN_SCRIPT_MASTER"]
+        token_data = requests.get(token_url, headers=headers).json()
+        nse_tokens = {
+            item["symbol"].strip(): item["token"]
+            for item in token_data
+            if item.get("exch_seg") == "NSE" and item.get("symbol") and item.get("token")
+        }
 
         # Clear existing documents (optional: only if overwrite is needed)
         try:
@@ -34,22 +43,31 @@ def main(context):
         except Exception as e:
             print({"status": "error", "message": str(e)})
 
+        inserted_count = 0
+
         for _, row in df.iterrows():
+            symbol = row["Symbol"].strip()
+            token = nse_tokens.get(symbol)
             doc = {
-                "symbol": row["Symbol"].strip(),
+                "symbol": symbol,
                 "company": row["Company Name"].strip(),
                 "industry": row["Industry"].strip(),
-                "isin": row["ISIN Code"].strip()
+                "isin": row["ISIN Code"].strip(),
+                "token": token.get(symbol, None)
             }
-            print(doc)
-            databases.create_document(
-                database_id,
-                collection_id,
-                document_id="unique()",
-                data=doc
-            )
 
-        return {"success": True, "inserted": len(df)}
+            try:
+                databases.create_document(
+                    database_id=database_id,
+                    collection_id=collection_id,
+                    document_id="unique()",
+                    data=doc
+                )
+                inserted_count += 1
+            except Exception as e:
+                print(f"⚠️ Insert failed for {symbol}: {str(e)}")
+
+        return {"success": True, "inserted": inserted_count}
 
     except Exception as e:
-        print({"status": "error", "message": str(e)})
+        return {"success": False, "error": str(e)}
