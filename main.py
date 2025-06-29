@@ -13,7 +13,7 @@ def main(context):
         client.set_project(os.environ["APPWRITE_FUNCTION_PROJECT_ID"])
         client.set_key(os.environ["APPWRITE_API_KEY"])
 
-        #setup the database
+        # #setup the database
         databases = Databases(client)
         database_id = os.environ["NIFTY_DATABASE_ID"]
         collection_id = os.environ["NIFTY_COLLECTION_ID"]
@@ -32,9 +32,9 @@ def main(context):
         token_url = os.environ["ANGEL_ONE_OPEN_SCRIPT_MASTER"]
         token_data = requests.get(token_url, headers=headers).json()
         nse_tokens = {
-            item["symbol"].strip(): item["token"]
+            item["name"].strip(): item["token"]
             for item in token_data
-            if item.get("exch_seg") == "NSE" and item.get("symbol") and item.get("token")
+            if item.get("exch_seg") == "NSE" and item.get("name") and item.get("token")
         }
 
         # Clear existing documents (optional: only if overwrite is needed)
@@ -45,15 +45,15 @@ def main(context):
 
         inserted_count = 0
 
-        for _, row in df.iterrows():
-            symbol = row["Symbol"].strip()
+        for _,item in df.iterrows():
+            symbol = item["Symbol"].strip()
             token = nse_tokens.get(symbol)
             doc = {
                 "symbol": symbol,
-                "company": row["Company Name"].strip(),
-                "industry": row["Industry"].strip(),
-                "isin": row["ISIN Code"].strip(),
-                "token": token.get(symbol, None)
+                "company": item["Company Name"].strip(),
+                "industry": item["Industry"].strip(),
+                "isin": item["ISIN Code"].strip(),
+                "token": token
             }
 
             try:
